@@ -498,6 +498,15 @@ class Auth_Login_NormalAuth extends \Auth_Login_Driver
 
 		return $result[0];
 	}
+
+	/**
+	 * Perform the actual login check
+	 *
+	 * @return  bool
+	 */
+	public function validate_user()
+	{
+	}
 }
 
 // end of file normalauth.php
