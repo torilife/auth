@@ -317,6 +317,13 @@ class Auth_Login_NormalAuth extends \Auth_Login_Driver
 	public function reset_password($member_id)
 	{
 		$new_password = \Str::random('alnum', 8);
+		$this->change_password_simple($new_password);
+
+		return $new_password;
+	}
+
+	public function change_password_simple($member_id, $new_password)
+	{
 		$password_hash = $this->hash_password($new_password);
 
 		$affected_rows = \DB::update('member_auth')
