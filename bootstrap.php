@@ -26,9 +26,9 @@ Autoloader::add_classes(array(
 	'Auth\\Auth_Group_SimpleGroup'  => __DIR__.'/classes/auth/group/simplegroup.php',
 
 	'Auth\\Auth_Login_Driver'          => __DIR__.'/classes/auth/login/driver.php',
-//	'Auth\\Auth_Login_SimpleAuth'      => __DIR__.'/classes/auth/login/simpleauth.php',
-//	'Auth\\SimpleUserUpdateException'  => __DIR__.'/classes/auth/login/simpleauth.php',
-//	'Auth\\SimpleUserWrongPassword'    => __DIR__.'/classes/auth/login/simpleauth.php',
+	'Auth\\Auth_Login_SimpleAuth'      => __DIR__.'/classes/auth/login/simpleauth.php',
+	'Auth\\SimpleUserUpdateException'  => __DIR__.'/classes/auth/login/simpleauth.php',
+	'Auth\\SimpleUserWrongPassword'    => __DIR__.'/classes/auth/login/simpleauth.php',
 	'Auth\\Auth_Login_NormalAuth'      => __DIR__.'/classes/auth/login/normalauth.php',
 	'Auth\\NormalUserUpdateException'  => __DIR__.'/classes/auth/login/normalauth.php',
 	'Auth\\NormalUserWrongPassword'    => __DIR__.'/classes/auth/login/normalauth.php',
