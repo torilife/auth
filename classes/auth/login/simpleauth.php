@@ -99,7 +99,7 @@ class Auth_Login_SimpleAuth extends \Auth_Login_Driver
 	public function validate_user($username_or_email = '', $password = '')
 	{
 		$username_or_email = trim($username_or_email) ?: trim(\Input::post(\Config::get('simpleauth.username_post_key', 'username')));
-		$password = trim($password) ?: trim(\Input::post(\Config::get('simpleauth.password_post_key', 'password')));
+		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('simpleauth.password_post_key', 'password')));
 
 		if (empty($username_or_email) or empty($password))
 		{
@@ -238,7 +238,7 @@ class Auth_Login_SimpleAuth extends \Auth_Login_Driver
 			'profile_fields'  => serialize($profile_fields),
 			'last_login'      => 0,
 			'login_hash'      => '',
-			'created_at'      => \Date::forge()->get_timestamp()
+			'created_at'      => date('Y-m-d H:i:s')
 		);
 		$result = \DB::insert(\Config::get('simpleauth.table_name'))
 			->set($user)
@@ -423,7 +423,7 @@ class Auth_Login_SimpleAuth extends \Auth_Login_Driver
 			throw new \SimpleUserUpdateException('User not logged in, can\'t create login hash.', 10);
 		}
 
-		$last_login = \Date::forge()->get_timestamp();
+		$last_login = date('Y-m-d H:i:s');
 		$login_hash = sha1(\Config::get('simpleauth.login_hash_salt').$this->user['username'].$last_login);
 
 		\DB::update(\Config::get('simpleauth.table_name'))
@@ -539,6 +539,27 @@ class Auth_Login_SimpleAuth extends \Auth_Login_Driver
 	public function guest_login()
 	{
 		return \Config::get('simpleauth.guest_login', true);
+	}
+
+	/**
+	 * Check password
+	 *
+	 * @param   string
+	 * @return  bool
+	 */
+	public function check_password($password = '')
+	{
+		if (!$this->perform_check()) return false;
+
+		$username = \Session::get('username');
+		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('simpleauth.password_post_key', 'password')));
+		if (empty($username) || empty($password)) return false;
+
+		return (bool)\DB::select_array(\Config::get('simpleauth.table_columns', array('*')))
+			->where('username', '=', $username)
+			->and_where('password', '=', $this->hash_password($password))
+			->from(\Config::get('simpleauth.table_name'))
+			->execute(\Config::get('simpleauth.db_connection'))->current();
 	}
 }
 
