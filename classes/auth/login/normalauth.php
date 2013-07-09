@@ -18,6 +18,20 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	public static function _init()
 	{
 		\Config::load('normalauth', true);
+
+		// setup the remember-me session object if needed
+		if (\Config::get('normalauth.remember_me.enabled', false))
+		{
+			static::$remember_me = \Session::forge(array(
+				'driver' => 'cookie',
+				'cookie' => array(
+					'cookie_name' => \Config::get('normalauth.remember_me.cookie_name', 'rmcookie'),
+				),
+				'encrypt_cookie' => true,
+				'expire_on_close' => false,
+				'expiration_time' => \Config::get('normalauth.remember_me.expiration', 86400 * 31),
+			));
+		}
 	}
 
 	/**
@@ -50,11 +64,17 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 				$this->member = self::get_member4id($member_id);
 			}
 
-			// return true when login was verified
-			if ($this->member and $this->member['login_hash'] === $login_hash)
+			// return true when login was verified, and either the hash matches or multiple logins are allowed
+			if ($this->member and (\Config::get('normalauth.multiple_logins', false) or $this->member['login_hash'] === $login_hash))
 			{
 				return true;
 			}
+		}
+
+		// not logged in, do we have remember-me active and a stored member_id?
+		elseif (static::$remember_me and $member_id = static::$remember_me->get('member_id', null))
+		{
+			return $this->force_login($member_id);
 		}
 
 		\Session::delete('member_id');
