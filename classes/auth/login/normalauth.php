@@ -435,6 +435,16 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	}
 
 	/**
+	 * Get member object
+	 *
+	 * @return object
+	 */
+	public function get_member()
+	{
+		return $this->member ?: false;
+	}
+
+	/**
 	 * Get the user's emailaddress
 	 *
 	 * @return  string
