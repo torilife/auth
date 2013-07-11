@@ -2,10 +2,6 @@
 
 namespace Auth;
 
-class NormalUserUpdateException extends \FuelException {}
-
-class NormalUserWrongPassword extends \FuelException {}
-
 /**
  * NormalAuth basic login driver
  *
@@ -59,13 +55,13 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 		// only worth checking if there's both a member_id and login-hash
 		if (!empty($member_id) and !empty($login_hash))
 		{
-			if (is_null($this->member) or $this->member['id'] != $member_id)
+			if (is_null($this->member) or $this->member->id != $member_id)
 			{
 				$this->member = self::get_member4id($member_id);
 			}
 
 			// return true when login was verified, and either the hash matches or multiple logins are allowed
-			if ($this->member and (\Config::get('normalauth.multiple_logins', false) or $this->member['login_hash'] === $login_hash))
+			if ($this->member and (\Config::get('normalauth.multiple_logins', false) or $this->member->login_hash === $login_hash))
 			{
 				return true;
 			}
@@ -100,23 +96,22 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		$password = $this->hash_password($password);
-		$member_auth = \DB::select_array(array('*'))
-			->where('email', '=', $email)
-			->and_where('password', '=', $password)
-			->from('member_auth')
-			->execute(\Config::get('normalauth.db_connection'))->current();
+		$password    = $this->hash_password($password);
+		$member_auth = \Model_MemberAuth::query()
+			->where('email', $email)
+			->where('password', $password)
+			->get_one();
 
-		if ($member_auth == false)
+		if (!$member_auth)
 		{
 			\Session::delete('member_id');
 			\Session::delete('login_hash');
 
 			return false;
 		}
-		$this->member = self::get_member4id($member_auth['member_id']);
+		$this->member = self::get_member4id($member_auth->member_id);
 
-		\Session::set('member_id', $member_auth['member_id']);
+		\Session::set('member_id', $member_auth->member_id);
 		\Session::set('login_hash', $this->create_login_hash());
 		\Session::instance()->rotate();
 
@@ -136,13 +131,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		$this->member = \DB::select_array(array('*'))
-				 ->where('id', '=', $member_id)
-				 ->from('member')
-				 ->execute(\Config::get('normalauth.db_connection'))
-				 ->current();
-
-		if ($this->member == false)
+		if (!$this->member = self::get_member4id($member_id))
 		{
 			\Session::delete('member_id');
 			\Session::delete('login_hash');
@@ -150,8 +139,9 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		\Session::set('member_id', $this->member['id']);
+		\Session::set('member_id', $this->member->id);
 		\Session::set('login_hash', $this->create_login_hash());
+
 		return true;
 	}
 
@@ -171,63 +161,74 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	/**
 	 * Create new user
 	 *
+	 * @param   string
+	 * @param   string
 	 * @param   string  must contain valid email address
-	 * @param   string
-	 * @param   string
+	 * @param   int     group id
+	 * @param   Array
 	 * @return  bool
 	 */
 	public function create_user($email, $password, $name = '')
 	{
+		// prep the password
 		$password = trim($password);
+
+		// and validate the email address
 		$email = filter_var(trim($email), FILTER_VALIDATE_EMAIL);
 
+		// bail out if we're missing username, password or email address
 		if (empty($password) or empty($email))
 		{
-			throw new \NormalUserUpdateException('Email address and password can\'t be empty.');
+			throw new \SimpleUserUpdateException('Email address or password can\'t be empty.', 1);
 		}
 
-		$same_users = \DB::select_array(array('*'))
-			->where('email', '=', $email)
-			->from('member_auth')
-			->execute(\Config::get('normalauth.db_connection'));
+		// check if we already have an account with this email address or username
+		$duplicate = \Model_MemberAuth::query()->where('email', $email)->get_one();;
 
-		if ($same_users->count() > 0)
+		// did we find one?
+		if ($duplicate)
 		{
-			if (in_array(strtolower($email), array_map('strtolower', $same_users->current())))
+			// bail out with an exception
+			if (strtolower($email) == strtolower($duplicate->email))
 			{
-				throw new \NormalUserUpdateException('Email address already exists');
+				throw new \SimpleUserUpdateException('Email address already exists', 2);
 			}
+		}
+
+		// do we have a logged-in user?
+		if ($currentuser = \Auth::get_user_id())
+		{
+			$currentuser = $currentuser[1];
+		}
+		else
+		{
+			$currentuser = 0;
 		}
 
 		try
 		{
 			\DB::start_transaction();
+			$member = \Model_Member::forge();
+			if ($name) $member->name = $name;
+			$member->register_type  = 0;
+			$member->filesize_total = 0;
+			$member->save();
 
-			$member = array(
-				'created_at' => date('Y-m-d H:i:s'),
-				'updated_at' => date('Y-m-d H:i:s'),
-			);
-			if ($name) $member['name'] = $name;
-			$member_id = self::db_insert('member', $member);
-
-			$member_auth = array(
-				'member_id'  => (int)$member_id,
-				'email'      => $email,
-				'password'   => $this->hash_password((string) $password),
-				'created_at' => date('Y-m-d H:i:s'),
-				'updated_at' => date('Y-m-d H:i:s'),
-			);
-			$this->db_insert('member_auth', $member_auth);
+			$member_auth = \Model_MemberAuth::forge();
+			$member_auth->member_id = $member->id;
+			$member_auth->email     = $email;
+			$member_auth->password  = $this->hash_password((string) $password);
+			$member_auth->save();
 			\DB::commit_transaction();
 		}
-		catch (Exception $e)
+		catch (\FuelException $e)
 		{
 			\DB::rollback_transaction();
-
 			return false;
 		}
 
-		return $member_id;
+		// and the id of the created user, or false if creation failed
+		return $member->id;
 	}
 
 	/**
@@ -235,40 +236,41 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	 * Note: Username cannot be updated, to update password the old password must be passed as old_password
 	 *
 	 * @param   Array  properties to be updated including profile fields
-	 * @param   string
+	 * @param   integer
 	 * @return  bool
 	 */
 	public function update_user($values, $member_id = null)
 	{
-		if (empty($member_id)) $member_id = $this->member['id'];
+		if (empty($member_id)) $member_id = $this->member->id;
 		if (empty($member_id))
 		{
-			throw new \NormalUserUpdateException('Member_id is empty.');
+			throw new \SimpleUserUpdateException('Username not found', 4);
 		}
 
-		$current_values = \DB::select_array(array('*'))
-			->where('member_id', '=', $member_id)
-			->from('member_auth')
-			->execute(\Config::get('normalauth.db_connection'));
+		// get the current user record
+		$current_member      = \Model_Member::find($member_id, array('rows_limit' => 1));
+		$current_member_auth = \Model_MemberAuth::query()->where('member_id', $member_id)->get_one();
 
-		if (empty($current_values))
+		// and bail out if it doesn't exist
+		if (empty($current_member) || empty($current_member_auth))
 		{
-			throw new \NormalUserUpdateException('Member_id not found');
+			throw new \SimpleUserUpdateException('Username not found', 4);
 		}
 
+		// validate the values passed and assume the update array
 		$update = array();
 		if (array_key_exists('password', $values))
 		{
 			if (empty($values['old_password'])
-				or $current_values->get('password') != $this->hash_password(trim($values['old_password'])))
+				or $current_member_auth->password != $this->hash_password(trim($values['old_password'])))
 			{
-				throw new \NormalUserWrongPassword('Old password is invalid');
+				throw new \SimpleUserWrongPassword('Old password is invalid');
 			}
 
 			$password = trim(strval($values['password']));
 			if ($password === '')
 			{
-				throw new \NormalUserUpdateException('Password can\'t be empty.');
+				throw new \SimpleUserUpdateException('Password can\'t be empty.', 6);
 			}
 			$update['password'] = $this->hash_password($password);
 			unset($values['password']);
@@ -282,28 +284,60 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			$email = filter_var(trim($values['email']), FILTER_VALIDATE_EMAIL);
 			if ( ! $email)
 			{
-				throw new \NormalUserUpdateException('Email address is not valid');
+				throw new \SimpleUserUpdateException('Email address is not valid', 7);
 			}
-			if (\Util_db::check_record_exist('member_auth', 'email', $email))
+
+			$matches = \Model_MemberAuth::query()
+				->where('email', '=', $email)
+				->where('member_id', '!=', $current_member->id)
+				->get_one();
+
+			if ($matches)
 			{
-				throw new \NormalUserUpdateException('Email address is already exists.');
+				throw new \SimpleUserUpdateException('Email address is already in use', 11);
 			}
+
 			$update['email'] = $email;
 			unset($values['email']);
 		}
 
-		$affected_rows = \DB::update('member_auth')
-			->set($update)
-			->where('member_id', '=', $member_id)
-			->execute(\Config::get('normalauth.db_connection'));
+		// load the updated values into the object
+		$current_member_auth->from_array($update);
 
-		// Refresh user
-		if ($this->member['id'] == $member_id)
+		$updated = false;
+
+		// any values remaining?
+		if ( ! empty($values))
 		{
-			$this->member = self::get_member4id($member_id);
+			// set them as EAV values
+			foreach ($values as $key => $value)
+			{
+				if ( ! isset($current_member_auth->{$key}) or $current_member_auth->{$key} != $value)
+				{
+					if ($value === null)
+					{
+						unset($current_member_auth->{$key});
+					}
+					else
+					{
+						$current_member_auth->{$key} = $value;
+					}
+
+					// mark we've updated something
+					$updated = true;
+				}
+			}
 		}
 
-		return $affected_rows > 0;
+		// check if this has changed anything
+		if ($updated or $updated = $current_member_auth->is_changed())
+		{
+			// and only save if it did
+			$current_member_auth->save();
+		}
+
+		// return the updated status
+		return $updated;
 	}
 
 	/**
@@ -321,7 +355,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return (bool) $this->update_user(array('old_password' => $old_password, 'password' => $new_password), $member_id);
 		}
 		// Only catch the wrong password exception
-		catch (NormalUserWrongPassword $e)
+		catch (SimpleUserWrongPassword $e)
 		{
 			return false;
 		}
@@ -346,14 +380,15 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	{
 		$password_hash = $this->hash_password($new_password);
 
-		$affected_rows = \DB::update('member_auth')
-			->set(array('password' => $password_hash))
-			->where('member_id', '=', $member_id)
-			->execute(\Config::get('normalauth.db_connection'));
-
-		if ( ! $affected_rows)
+		if (!$member_auth = \Model_MemberAuth::query()->where('member_id', $member_id)->get_one())
 		{
-			throw new \NormalUserUpdateException('Failed to reset password, user was invalid.');
+			throw new \SimpleUserUpdateException('Member_id was invalid.');
+		}
+		$member_auth->password = $password_hash;
+		$result = $member_auth->save();
+		if (!$result)
+		{
+			throw new \SimpleUserUpdateException('Failed to reset password, member_id was invalid.');
 		}
 
 		return $new_password;
@@ -367,16 +402,13 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	 */
 	public function delete_user($member_id)
 	{
-		if (empty($member_id))
+		// make sure we have a member to delete
+		if (!$member_id || !$member = self::get_member4id($member_id))
 		{
-			throw new \NormalUserUpdateException('Cannot delete user with empty member_id');
+			throw new \SimpleUserUpdateException('Cannot delete user with empty username', 9);
 		}
 
-		$affected_rows = \DB::delete('member')
-			->where('id', '=', $member_id)
-			->execute(\Config::get('normalauth.db_connection'));
-
-		return $affected_rows > 0;
+		return $member->delete();
 	}
 
 	/**
@@ -388,18 +420,15 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	{
 		if (empty($this->member))
 		{
-			throw new \NormalUserUpdateException('User not logged in, can\'t create login hash.');
+			throw new \SimpleUserUpdateException('User not logged in, can\'t create login hash.', 10);
 		}
 
 		$last_login = date('Y-m-d H:i:s');
-		$login_hash = sha1(\Config::get('normalauth.login_hash_salt').$this->member['id'].$last_login);
+		$login_hash = sha1(\Config::get('normalauth.login_hash_salt').$this->member->id.$last_login);
 
-		\DB::update('member')
-			->set(array('last_login' => $last_login, 'login_hash' => $login_hash))
-			->where('id', '=', $this->member['id'])
-			->execute(\Config::get('normalauth.db_connection'));
-
-		$this->member['login_hash'] = $login_hash;
+		$this->member->last_login = $last_login;
+		$this->member->login_hash = $login_hash;
+		$this->member->save();
 
 		return $login_hash;
 	}
@@ -416,7 +445,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		return (int)$this->member['id'];
+		return (int)$this->member->id;
 	}
 
 	/**
@@ -431,7 +460,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		return array($this->id, (int) $this->member['id']);
+		return array($this->id, (int) $this->member->id);
 	}
 
 	/**
@@ -456,7 +485,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		return $this->member['email'];
+		return $this->member->member_auth->email;
 	}
 
 	/**
@@ -471,7 +500,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			return false;
 		}
 
-		return $this->member['name'];
+		return $this->member->name;
 	}
 
 	/**
@@ -505,35 +534,15 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('normalauth.password_post_key', 'password')));
 		if (empty($member_id) || empty($password)) return false;
 
-		return (bool)\DB::select_array(array('*'))
-			->where('member_id', '=', $member_id)
-			->and_where('password', '=', $this->hash_password($password))
-			->from('member_auth')
-			->execute(\Config::get('normalauth.db_connection'))->current();
+		if (!$member = self::get_member4id($member_id)) return false;
+		if (!$member->member_auth->password) return false;
+
+		return $member->member_auth->password == $this->hash_password($password);
 	}
 
 	private static function get_member4id($id)
 	{
-		return \DB::select_array(array('member.*', 'member_auth.email'))
-			->from('member')
-			->join('member_auth','LEFT')->on('member_auth.member_id', '=', 'member.id')
-			->where('member.id', '=', $id)
-			->execute(\Config::get('normalauth.db_connection'))->current();
-	}
-
-	private static function db_insert($table, array $values)
-	{
-		$data['created_at'] = date('Y-m-d H:i:s');
-		$data['updated_at'] = date('Y-m-d H:i:s');
-		$result = \DB::insert($table)
-							->set($values)
-							->execute(\Config::get('normalauth.db_connection'));
-		if (!($result[1] > 0))
-		{
-			throw new Exception(sprintf('Insert error. (table:%s)', $table));
-		}
-
-		return $result[0];
+		return \Model_Member::find($id, array('rows_limit' => 1, 'related' => 'member_auth'));
 	}
 
 	/**
