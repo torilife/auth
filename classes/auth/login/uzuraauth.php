@@ -3,29 +3,29 @@
 namespace Auth;
 
 /**
- * NormalAuth basic login driver
+ * UzuraAuth basic login driver
  *
  * @package     Fuel
  * @subpackage  Auth
  */
-class Auth_Login_Normalauth extends \Auth_Login_Driver
+class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 {
 
 	public static function _init()
 	{
-		\Config::load('normalauth', true);
+		\Config::load('uzuraauth', true);
 
 		// setup the remember-me session object if needed
-		if (\Config::get('normalauth.remember_me.enabled', false))
+		if (\Config::get('uzuraauth.remember_me.enabled', false))
 		{
 			static::$remember_me = \Session::forge(array(
 				'driver' => 'cookie',
 				'cookie' => array(
-					'cookie_name' => \Config::get('normalauth.remember_me.cookie_name', 'rmcookie'),
+					'cookie_name' => \Config::get('uzuraauth.remember_me.cookie_name', 'rmcookie'),
 				),
 				'encrypt_cookie' => true,
 				'expire_on_close' => false,
-				'expiration_time' => \Config::get('normalauth.remember_me.expiration', 86400 * 31),
+				'expiration_time' => \Config::get('uzuraauth.remember_me.expiration', 86400 * 31),
 			));
 		}
 	}
@@ -36,7 +36,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	protected $member = null;
 
 	/**
-	 * @var  array  NormalAuth class config
+	 * @var  array  UzuraAuth class config
 	 */
 	protected $config = array(
 //		'drivers' => array('group' => array('NormalGroup')),
@@ -61,7 +61,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 			}
 
 			// return true when login was verified, and either the hash matches or multiple logins are allowed
-			if ($this->member and (\Config::get('normalauth.multiple_logins', false) or $this->member->login_hash === $login_hash))
+			if ($this->member and (\Config::get('uzuraauth.multiple_logins', false) or $this->member->login_hash === $login_hash))
 			{
 				return true;
 			}
@@ -88,8 +88,8 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	 */
 	public function login($email = '', $password = '')
 	{
-		$email    = trim($email)    ? trim($email)    : trim(\Input::post(\Config::get('normalauth.username_post_key', 'email')));
-		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('normalauth.password_post_key', 'password')));
+		$email    = trim($email)    ? trim($email)    : trim(\Input::post(\Config::get('uzuraauth.username_post_key', 'email')));
+		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('uzuraauth.password_post_key', 'password')));
 
 		if (empty($email) or empty($password))
 		{
@@ -424,7 +424,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 		}
 
 		$last_login = date('Y-m-d H:i:s');
-		$login_hash = sha1(\Config::get('normalauth.login_hash_salt').$this->member->id.$last_login);
+		$login_hash = sha1(\Config::get('uzuraauth.login_hash_salt').$this->member->id.$last_login);
 
 		$this->member->last_login = $last_login;
 		$this->member->login_hash = $login_hash;
@@ -531,7 +531,7 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 		if (!$this->perform_check()) return false;
 
 		$member_id = \Session::get('member_id');
-		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('normalauth.password_post_key', 'password')));
+		$password = trim($password) ? trim($password) : trim(\Input::post(\Config::get('uzuraauth.password_post_key', 'password')));
 		if (empty($member_id) || empty($password)) return false;
 
 		if (!$member = self::get_member4id($member_id)) return false;
@@ -555,4 +555,4 @@ class Auth_Login_Normalauth extends \Auth_Login_Driver
 	}
 }
 
-// end of file normalauth.php
+// end of file uzuraauth.php
