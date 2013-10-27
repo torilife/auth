@@ -207,7 +207,6 @@ class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 
 		try
 		{
-			\DB::start_transaction();
 			$member = \Model_Member::forge();
 			if ($name) $member->name = $name;
 			$member->register_type  = 0;
@@ -219,11 +218,9 @@ class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 			$member_auth->email     = $email;
 			$member_auth->password  = $this->hash_password((string) $password);
 			$member_auth->save();
-			\DB::commit_transaction();
 		}
 		catch (\FuelException $e)
 		{
-			\DB::rollback_transaction();
 			return false;
 		}
 
