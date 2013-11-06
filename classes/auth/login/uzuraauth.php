@@ -146,6 +146,31 @@ class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 	}
 
 	/**
+	 * Set a remember-me cookie for the passed user id, or for the current
+	 * logged-in user if no id was given
+	 *
+	 * @return  bool  wether or not the cookie was set
+	 */
+	public function remember_me($member_id = null)
+	{
+		// if no user-id is given, get the current user's id
+		if ($member_id === null and isset($this->member->id))
+		{
+			$member_id = $this->member->id;
+		}
+
+		// if we have a session and an id, set it
+		if (static::$remember_me and $member_id)
+		{
+			static::$remember_me->set('member_id', $member_id);
+			return true;
+		}
+
+		// remember-me not enabled, or no user id available
+		return false;
+	}
+
+	/**
 	 * Logout user
 	 *
 	 * @return  bool
