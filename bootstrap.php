@@ -5,7 +5,7 @@
  * Fuel is a fast, lightweight, community driven PHP5 framework.
  *
  * @package    Fuel
- * @version    1.7
+ * @version    1.6
  * @author     Fuel Development Team
  * @license    MIT License
  * @copyright  2010 - 2013 Fuel Development Team
@@ -34,6 +34,7 @@ Autoloader::add_classes(array(
 	'Auth\\Auth_Login_Driver'            => __DIR__.'/classes/auth/login/driver.php',
 	'Auth\\Auth_Login_Simpleauth'        => __DIR__.'/classes/auth/login/simpleauth.php',
 	'Auth\\Auth_Login_Ormauth'           => __DIR__.'/classes/auth/login/ormauth.php',
+	'Auth\\Auth_Login_Uzuraauth'      => __DIR__.'/classes/auth/login/uzuraauth.php',
 
 	'Auth\\SimpleUserUpdateException'    => __DIR__.'/classes/auth/exceptions.php',
 	'Auth\\SimpleUserWrongPassword'      => __DIR__.'/classes/auth/exceptions.php',
