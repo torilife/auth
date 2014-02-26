@@ -248,6 +248,7 @@ class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 		{
 			return false;
 		}
+		$this->member = $member;
 
 		// and the id of the created user, or false if creation failed
 		return $member->id;
