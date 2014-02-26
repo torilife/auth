@@ -306,7 +306,7 @@ class Auth
 	 */
 	public static function unregister_driver_type($type)
 	{
-		if (in_array('login', 'group', 'acl'))
+		if (in_array($type,array('login', 'group', 'acl')))
 		{
 			\Error::notice('Cannot remove driver type, included drivers login, group and acl cannot be removed.');
 			return false;
@@ -337,7 +337,7 @@ class Auth
 		}
 		if (static::$_verify_multiple !== true and method_exists(static::$_instance, $method))
 		{
-			return call_user_func_array(array(static::$_instance, $method), $args);
+			return call_fuel_func_array(array(static::$_instance, $method), $args);
 		}
 
 		throw new \BadMethodCallException('Invalid method: '.get_called_class().'::'.$method);
