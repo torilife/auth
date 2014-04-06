@@ -233,9 +233,12 @@ class Auth_Login_Uzuraauth extends \Auth_Login_Driver
 		try
 		{
 			$member = \Model_Member::forge();
-			if ($name) $member->name = $name;
+			if (strlen($name)) $member->name = $name;
 			$member->register_type  = 0;
 			$member->filesize_total = 0;
+			$member->sex_public_flag = 0;
+			$member->birthyear_public_flag = 0;
+			$member->birthday_public_flag = 0;
 			$member->save();
 
 			$member_auth = \Model_MemberAuth::forge();
