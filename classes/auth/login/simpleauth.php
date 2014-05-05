@@ -258,7 +258,8 @@ class Auth_Login_Simpleauth extends \Auth_Login_Driver
 			'profile_fields'  => serialize($profile_fields),
 			'last_login'      => 0,
 			'login_hash'      => '',
-			'created_at'      => date('Y-m-d H:i:s')
+			'created_at'      => date('Y-m-d H:i:s'),
+			'updated_at'      => date('Y-m-d H:i:s'),
 		);
 		$result = \DB::insert(\Config::get('simpleauth.table_name'))
 			->set($user)
@@ -357,7 +358,7 @@ class Auth_Login_Simpleauth extends \Auth_Login_Driver
 			$update['profile_fields'] = serialize($profile_fields);
 		}
 
-		$update['updated_at'] = \Date::forge()->get_timestamp();
+		$update['updated_at'] = date('Y-m-d H:i:s');
 
 		$affected_rows = \DB::update(\Config::get('simpleauth.table_name'))
 			->set($update)
